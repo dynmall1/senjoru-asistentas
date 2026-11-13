@@ -1,6 +1,6 @@
 // Greiti lietuviškų pagalbininkų testai.  Paleisti: node scripts/test_lt.ts
 import assert from "node:assert/strict";
-import { normalizePhone, parseDay, spokenDateTime, vilniusParts } from "../supabase/functions/agent-tools/lt.ts";
+import { eurai, normalizePhone, parseDay, spokenDateTime, vilniusParts } from "../supabase/functions/agent-tools/lt.ts";
 
 // 2026-11-13 penktadienis, 12:00 Vilniaus laiku (= 10:00 UTC)
 const now = new Date("2026-11-13T10:00:00Z");
@@ -24,5 +24,13 @@ assert.equal(normalizePhone("+370 612 34567"), "+37061234567");
 assert.equal(normalizePhone("61234567"), "+37061234567");
 assert.equal(normalizePhone("0037061234567"), "+37061234567");
 assert.equal(normalizePhone("123"), null);
+
+assert.equal(eurai(1), "1 euras");
+assert.equal(eurai(21), "21 euras");
+assert.equal(eurai(35), "35 eurai");
+assert.equal(eurai(15), "15 eurų");
+assert.equal(eurai(40), "40 eurų");
+assert.equal(eurai(111), "111 eurų");
+assert.equal(eurai(5.5), "5,50 euro");
 
 console.log("Visi testai praėjo ✓");
