@@ -58,3 +58,8 @@ Balsą keiskite ElevenLabs sąsajoje (Agent → Voice) arba nurodykite `ELEVENLA
 ## Archyvas
 Ankstesnė versija (registracija paslaugoms: DB, `agent-tools`, `agent/archyvas-registracijos/`)
 paliekama repo, jei vėl prireiktų.
+
+### Paieška internete (Firecrawl)
+`web_search`: greita paieška (~1 s, pavadinimai ir aprašymai); `details: true` prideda puslapių turinį (~10 s). Reikia Supabase secret `FIRECRAWL_API_KEY`.
+
+Pakeitus `agent/tools.json`: `node scripts/sync_tools.ts`. Gyvas paieškos testas: `node scripts/test_search.ts`.

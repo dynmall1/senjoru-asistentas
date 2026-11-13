@@ -18,6 +18,9 @@ Call get_weather @{ city = 'Kaune'; day = 'rytoj' }
 Call get_weather @{ city = 'Šiauliai'; day = 'šeštadienį' }
 Call get_weather @{ city = 'Neegzistuojantis' }
 Call get_weather @{}
+Call web_search @{ query = 'Žalgirio rungtynės rezultatas' }
+Call web_search @{ query = 'svarbiausios naujienos Lietuvoje šiandien'; recent = $true }
+Call web_search @{}
 
 try { Invoke-RestMethod "$base/get_current_time" -Method Post -Body '{}' -ContentType 'application/json' | Out-Null; Write-Host '[ERR] be slaptažodžio praėjo!' }
 catch { Write-Host "[OK ] be slaptažodžio -> $($_.Exception.Response.StatusCode.value__)" }
