@@ -1,0 +1,19 @@
+# Slapti raktai
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+dist/
+*.log
+
+# Supabase vietinis
+supabase/.branches/
+supabase/.temp/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
