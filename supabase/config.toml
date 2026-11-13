@@ -1,5 +1,9 @@
 project_id = "senjoru-asistentas"
 
 # ElevenLabs agentas nesiunčia Supabase JWT, autentifikuojamės per x-agent-secret header.
+[functions.assistant-tools]
+verify_jwt = false
+
+# Archyvas: registracijų asistento įrankiai (šiuo metu nenaudojami).
 [functions.agent-tools]
 verify_jwt = false

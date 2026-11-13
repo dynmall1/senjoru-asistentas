@@ -1,6 +1,7 @@
-# Senjorų asistentas 📞
+# Onutė 📞: telefoninė pašnekovė senjorams
 
-Telefoninis AI asistentas senjorams: paskambink ir lietuviškai užsiregistruok paslaugai.
+Senjoras paskambina, o AI pašnekovė „Onutė“ lietuviškai kalbasi, pasako orus, datą ir laiką,
+atsako į klausimus ir įspėja apie sukčius.
 
 ## Pradžia komandos nariui
 ```powershell
@@ -21,57 +22,35 @@ git push -u origin feat/jusu-dalis
 # GitHub'e: Compare & pull request → Merge
 ```
 
-## Rolės
-| Kas | Ką daro | Kur |
-|---|---|---|
-| A | Admin panelė | Lovable (atskiras repo) |
-| B | DB ir agento įrankiai | `supabase/` |
-| C | ElevenLabs agentas, Twilio | `agent/` |
-| D | Firecrawl duomenys, seed | `scripts/` |
-| E | Pitch, HeyGen, Screen Studio | — |
+## Įrankiai (Supabase Edge Function `assistant-tools`)
+| Įrankis | Ką daro |
+|---|---|
+| `get_weather` | Orai mieste dabar arba nurodytą dieną („rytoj“, „šeštadienį“), su patarimais |
+| `get_current_time` | Šiandienos data, savaitės diena, laikas |
 
-Daugiau informacijos: `CLAUDE.md`.
-
-## Backend diegimas (Supabase)
-Reikia: Supabase projekto (supabase.com, nemokamas planas).
-
-Projektas: `mrbtpaxkxtjabacvbzta` (jau įdiegtas). Windows PowerShell'e naudokite `npx.cmd` vietoj `npx`.
+Supabase projektas: `mrbtpaxkxtjabacvbzta`. Windows PowerShell'e naudokite `npx.cmd`.
 
 ```powershell
 npx.cmd supabase login                                    # atskirame lange, prašys kodo
 npx.cmd supabase link --project-ref mrbtpaxkxtjabacvbzta
-npx.cmd supabase db push --remote --include-seed --yes    # schema + demo duomenys
 npx.cmd supabase secrets set AGENT_SECRET=<paslaptis> --yes
-npx.cmd supabase functions deploy agent-tools --no-verify-jwt --yes
+npx.cmd supabase functions deploy assistant-tools --no-verify-jwt --yes
 ```
 
-### Įrankių testavimas
+### Testai
 ```powershell
-$h = @{ "x-agent-secret" = "<AGENT_SECRET>" }
-$u = "https://<ref>.supabase.co/functions/v1/agent-tools"
-irm "$u/identify_client"     -Method Post -Headers $h -ContentType "application/json" -Body '{"phone":"+37060000000"}'
-irm "$u/search_services"     -Method Post -Headers $h -ContentType "application/json" -Body '{"query":"kirpimas","city":"Vilnius"}'
-irm "$u/get_available_slots" -Method Post -Headers $h -ContentType "application/json" -Body '{"service_id":"<id iš paieškos>","day":"rytoj"}'
+node scripts/test_lt.ts          # gramatika, datos
+node scripts/test_weather.ts     # gyvi orai
+powershell -ExecutionPolicy Bypass -File scripts\test_assistant.ps1   # įdiegtas įrankis (naudoja .env)
 ```
-Visos pokalbio eigos testas (naudoja `.env`):
-`powershell -ExecutionPolicy Bypass -File scripts\test_tools.ps1`
-
-Lietuviškų datų ir kainų testai: `node scripts/test_lt.ts`
 
 ## ElevenLabs agentas
 1. ElevenLabs → Agents → Create agent.
 2. **First message** ir **System prompt**: iš `agent/system_prompt.md`.
-3. Kalba: lietuvių. Balsas: ramus, šiltas moters balsas.
-4. **Tools** → Add tool → Webhook: kiekvienam įrankiui iš `agent/tools.json` (URL `PROJEKTAS` pakeiskite savo ref, header `x-agent-secret` įrašykite kaip secret).
-5. **Phone numbers** → Twilio numerio prijungimas.
+3. Kalba: lietuvių. Balsas: ramus, šiltas.
+4. **Tools** → Add tool → Webhook: abu įrankiai iš `agent/tools.json` (header `x-agent-secret` kaip secret).
+5. **Phone numbers** → prijungti Twilio numerį.
 
-## Agento įrankiai
-| Įrankis | Ką daro |
-|---|---|
-| `identify_client` | Atpažįsta skambinantįjį pagal numerį |
-| `register_client` | Naujas klientas |
-| `search_services` | Paslaugų paieška (iki 3 variantų) |
-| `get_available_slots` | Laisvi laikai („rytoj“, „antradienį“, „rytas“/„popietė“) |
-| `create_booking` | Registracija (atominė, be dvigubų užsakymų) |
-| `list_my_bookings` | Kliento registracijos |
-| `cancel_booking` | Atšaukimas |
+## Archyvas
+Ankstesnė versija (registracija paslaugoms: DB, `agent-tools`, `agent/archyvas-registracijos/`)
+paliekama repo, jei vėl prireiktų.

@@ -1,0 +1,128 @@
+[
+  {
+    "type": "webhook",
+    "name": "identify_client",
+    "description": "Patikrina, ar skambinantysis jau yra klientų bazėje. Kviesk pačioje pokalbio pradžioje.",
+    "api_schema": {
+      "url": "https://PROJEKTAS.supabase.co/functions/v1/agent-tools/identify_client",
+      "method": "POST",
+      "request_headers": { "x-agent-secret": "AGENT_SECRET" },
+      "request_body_schema": {
+        "type": "object",
+        "properties": {
+          "phone": { "type": "string", "description": "Skambinančiojo telefono numeris ({{system__caller_id}})." }
+        },
+        "required": ["phone"]
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "register_client",
+    "description": "Užregistruoja naują klientą. Kviesk, kai identify_client grąžino found=false ir žmogus pasakė vardą ir pavardę.",
+    "api_schema": {
+      "url": "https://PROJEKTAS.supabase.co/functions/v1/agent-tools/register_client",
+      "method": "POST",
+      "request_headers": { "x-agent-secret": "AGENT_SECRET" },
+      "request_body_schema": {
+        "type": "object",
+        "properties": {
+          "phone": { "type": "string", "description": "Skambinančiojo telefono numeris." },
+          "full_name": { "type": "string", "description": "Vardas ir pavardė, pvz. 'Ona Petraitienė'." },
+          "birth_year": { "type": "integer", "description": "Gimimo metai, jei žmogus pasakė (nebūtina)." }
+        },
+        "required": ["phone", "full_name"]
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "search_services",
+    "description": "Ieško paslaugų. Grąžina iki 3 variantų su service_id. Sritys: gydytojas, kirpykla, socialinės paslaugos, odontologas, transportas, pedikiūras.",
+    "api_schema": {
+      "url": "https://PROJEKTAS.supabase.co/functions/v1/agent-tools/search_services",
+      "method": "POST",
+      "request_headers": { "x-agent-secret": "AGENT_SECRET" },
+      "request_body_schema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Raktiniai žodžiai, ko žmogus nori, pvz. 'kirpimas', 'šeimos gydytojas', 'dantys', 'pavėžėjimas'." },
+          "city": { "type": "string", "description": "Miestas, pvz. 'Vilnius', 'Kaunas' (nebūtina)." }
+        },
+        "required": ["query"]
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "get_available_slots",
+    "description": "Grąžina iki 3 artimiausių laisvų laikų pasirinktai paslaugai su slot_id ir tekstu 'spoken' skaitymui balsu.",
+    "api_schema": {
+      "url": "https://PROJEKTAS.supabase.co/functions/v1/agent-tools/get_available_slots",
+      "method": "POST",
+      "request_headers": { "x-agent-secret": "AGENT_SECRET" },
+      "request_body_schema": {
+        "type": "object",
+        "properties": {
+          "service_id": { "type": "string", "description": "service_id iš search_services." },
+          "day": { "type": "string", "description": "Pageidaujama diena: 'šiandien', 'rytoj', 'poryt', savaitės diena ('antradienį') arba data YYYY-MM-DD (nebūtina)." },
+          "part_of_day": { "type": "string", "description": "'rytas' arba 'popietė' (nebūtina)." }
+        },
+        "required": ["service_id"]
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "create_booking",
+    "description": "Užregistruoja klientą į pasirinktą laiką. Kviesk TIK žmogui aiškiai patvirtinus ('taip').",
+    "api_schema": {
+      "url": "https://PROJEKTAS.supabase.co/functions/v1/agent-tools/create_booking",
+      "method": "POST",
+      "request_headers": { "x-agent-secret": "AGENT_SECRET" },
+      "request_body_schema": {
+        "type": "object",
+        "properties": {
+          "phone": { "type": "string", "description": "Skambinančiojo telefono numeris." },
+          "slot_id": { "type": "string", "description": "slot_id iš get_available_slots." }
+        },
+        "required": ["phone", "slot_id"]
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "list_my_bookings",
+    "description": "Grąžina kliento būsimas registracijas su booking_id.",
+    "api_schema": {
+      "url": "https://PROJEKTAS.supabase.co/functions/v1/agent-tools/list_my_bookings",
+      "method": "POST",
+      "request_headers": { "x-agent-secret": "AGENT_SECRET" },
+      "request_body_schema": {
+        "type": "object",
+        "properties": {
+          "phone": { "type": "string", "description": "Skambinančiojo telefono numeris." }
+        },
+        "required": ["phone"]
+      }
+    }
+  },
+  {
+    "type": "webhook",
+    "name": "cancel_booking",
+    "description": "Atšaukia registraciją. Kviesk TIK žmogui aiškiai patvirtinus atšaukimą.",
+    "api_schema": {
+      "url": "https://PROJEKTAS.supabase.co/functions/v1/agent-tools/cancel_booking",
+      "method": "POST",
+      "request_headers": { "x-agent-secret": "AGENT_SECRET" },
+      "request_body_schema": {
+        "type": "object",
+        "properties": {
+          "phone": { "type": "string", "description": "Skambinančiojo telefono numeris." },
+          "booking_id": { "type": "string", "description": "booking_id iš list_my_bookings." }
+        },
+        "required": ["phone", "booking_id"]
+      }
+    }
+  }
+]
