@@ -1,50 +1,44 @@
-# Senjorų asistentas: instrukcijos AI įrankiams
+# Senjorų asistentas „Onutė“: instrukcijos AI įrankiams
 
 > Šis failas identiškas `AGENTS.md` (Codex). Pakeitus vieną, atnaujinkite ir kitą.
 
 ## Projektas
-Hakatono projektas: **telefoninis AI asistentas senjorams (70+)**. Senjoras paskambina
-telefonu, ElevenLabs balso agentas lietuviškai padeda rasti paslaugą ir
-užsiregistruoti (gydytojas, kirpykla, socialinis darbuotojas, transportas ir pan.).
-Darbuotojai registracijas mato admin panelėje realiu laiku.
+Hakatono projektas: **telefoninė AI pašnekovė senjorams (70+)**. Senjoras paskambina
+telefonu, ElevenLabs balso agentas „Onutė“ lietuviškai kalbasi, atsako į klausimus
+(orai, data ir laikas, bendros žinios), įspėja apie sukčius ir nukreipia į pagalbą skubiu atveju.
 
 ## Architektūra
 ```
 Skambutis → Twilio numeris → ElevenLabs Conversational AI agentas
-         → "server tools" (HTTP POST) → Supabase Edge Functions → Supabase Postgres
-Admin panelė (Lovable, atskiras repo) ← Supabase realtime
-Firecrawl → paslaugų teikėjų duomenys → DB + agento žinių bazė
+         → "server tools" (HTTP POST) → Supabase Edge Function `assistant-tools`
+                                          → Open-Meteo (orai, be rakto)
 ```
 
 ## Aplankų struktūra
-| Aplankas | Turinys | Atsakingas |
-|---|---|---|
-| `supabase/migrations/` | DB schema (SQL migracijos) | backend |
-| `supabase/functions/` | Edge Functions = agento įrankiai (Deno, TypeScript) | backend |
-| `supabase/seed.sql` | Demo duomenys | backend |
-| `agent/` | ElevenLabs sistemos promptas, `tools.json`, žinių bazė | agentas |
-| `scripts/` | Firecrawl skreiperis, pagalbiniai skriptai (Node, TypeScript) | duomenys |
-
-Frontend (admin panelė) kuriamas **Lovable** ir yra **atskirame repo**. Čia jo nėra.
+| Aplankas | Turinys |
+|---|---|
+| `agent/system_prompt.md` | Onutės sistemos promptas ir pirmoji žinutė |
+| `agent/tools.json` | Įrankių aprašai ElevenLabs agentui |
+| `supabase/functions/assistant-tools/` | Agento įrankiai: `get_weather`, `get_current_time` |
+| `supabase/functions/_shared/` | Bendri moduliai: `lt.ts` (lietuviškos datos, skaičiai), `weather.ts` |
+| `scripts/` | Testai ir pagalbiniai skriptai (Node, PowerShell) |
+| `agent/archyvas-registracijos/`, `supabase/functions/agent-tools/`, `supabase/migrations/` | **Archyvas:** ankstesnė registracijų versija, šiuo metu nenaudojama |
 
 ## Taisyklės
 - Atsakymus komandai ir kodo komentarus rašyk **lietuviškai**. Kodo identifikatoriai angliški.
 - **Niekada** nekomituok `.env` ir jokių API raktų. Naudok `.env.example`.
 - Į `main` tiesiogiai nepushinti. Dirbk savo šakoje (`feat/...`) ir daryk PR.
 - Prieš darbą: `git pull origin main`.
-- Dirbk tik savo aplanke. Jei reikia keisti kito žmogaus dalį, pirmiau pasakyk.
-- Kiekviena DB pakeitimų grupė eina į naują migracijos failą. Senų migracijų neredaguok.
 - Laikai ir datos: **Europe/Vilnius** laiko juosta.
+- Windows PowerShell'e naudok `npx.cmd`, ne `npx` (execution policy).
 
-## Agento įrankių (Edge Functions) principai
-- Įvestis ir išvestis: JSON. Atsakymai trumpi, nes juos agentas perskaito balsu.
-- Daugiausia **3 variantai** viename atsakyme, nes senjorui telefonu daugiau neperskaitysi.
-- Datoms ir laikams pridėk laukelį `spoken`, pvz. `"rytoj, lapkričio 14 d., 10 val."`.
-- Klaidų tekstai lietuviškai, suprantami žmogui.
+## Įrankių principai
+- Įvestis ir išvestis: JSON. Visada `ok` ir `message`. `message` yra lietuviškas tekstas, paruoštas skaityti balsu.
+- Gramatika svarbi: naudok `lt.ts` pagalbininkus (`kiekis`, `laipsniai`, `spokenDate`...).
+- Klaidos vartotojui per `UserError`/`WeatherError` (suprantamas tekstas), techninės klaidos tik į logus.
 - Autentifikacija: header `x-agent-secret` turi sutapti su `AGENT_SECRET`.
-- Registracija turi būti atominė (apsauga nuo dvigubo to paties laiko užsakymo).
+- Naujas įrankis: pridėk į `tools` objektą `assistant-tools/index.ts`, aprašą į `agent/tools.json`, testą į `scripts/`.
 
-## Agento elgsena (senjorams)
-Lėtai, trumpais sakiniais, vienas klausimas vienu metu, kreipiasi „Jūs“. Prieš
-registruodamas visada pakartoja paslaugą, vietą, datą ir laiką ir klausia „Ar teisingai?“.
-Niekada neklausia asmens kodo ar banko duomenų.
+## Testai
+- `node scripts/test_lt.ts`: gramatika ir datos (be interneto)
+- `node scripts/test_weather.ts`: gyvi orai iš Open-Meteo

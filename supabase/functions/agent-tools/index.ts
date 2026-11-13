@@ -7,7 +7,7 @@
 // kurį agentas gali perskaityti ar perfrazuoti senjorui.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { eurai, normalizePhone, parseDay, spokenDateTime, stripDiacritics, vilniusParts } from "./lt.ts";
+import { eurai, normalizePhone, parseDay, spokenDateTime, stripDiacritics, vilniusParts } from "../_shared/lt.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
