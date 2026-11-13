@@ -45,11 +45,15 @@ powershell -ExecutionPolicy Bypass -File scripts\test_assistant.ps1   # įdiegta
 ```
 
 ## ElevenLabs agentas
-1. ElevenLabs → Agents → Create agent.
-2. **First message** ir **System prompt**: iš `agent/system_prompt.md`.
-3. Kalba: lietuvių. Balsas: ramus, šiltas.
-4. **Tools** → Add tool → Webhook: abu įrankiai iš `agent/tools.json` (header `x-agent-secret` kaip secret).
-5. **Phone numbers** → prijungti Twilio numerį.
+Agentas jau sukurtas (ID `.env` faile, `ELEVENLABS_AGENT_ID`).
+- Kalba: lietuvių · TTS: `eleven_v3_conversational` · LLM: `claude-haiku-5-5` · Balsas: Sarah
+- Senesni TTS modeliai (flash/turbo v2.5, multilingual v2) **lietuvių nepalaiko**.
+
+```powershell
+node scripts/update_agent.ts     # pakeitus agent/system_prompt.md → atnaujina agentą
+node scripts/create_agent.ts     # sukuria NAUJĄ agentą su įrankiais (tik jei reikia iš naujo)
+```
+Balsą keiskite ElevenLabs sąsajoje (Agent → Voice) arba nurodykite `ELEVENLABS_VOICE_ID` `.env` faile prieš `create_agent.ts`.
 
 ## Archyvas
 Ankstesnė versija (registracija paslaugoms: DB, `agent-tools`, `agent/archyvas-registracijos/`)
