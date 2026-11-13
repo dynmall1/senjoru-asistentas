@@ -1,11 +1,36 @@
-// Atnaujina esamo agento promptą, pirmąją žinutę ir LLM iš agent/system_prompt.md.
-// Paleisti po prompto pakeitimų: node scripts/update_agent.ts
-// Įrankių ir balso neliečia (juos keiskite ElevenLabs sąsajoje arba create_agent.ts).
+// Atnaujina esamo agento promptą, pirmąją žinutę, LLM ir greičio/trukmės nustatymus.
+// Paleisti po prompto ar nustatymų pakeitimų: node scripts/update_agent.ts
+// Įrankius sinchronizuoja sync_tools.ts, balsą keiskite ElevenLabs sąsajoje.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { readPrompt } from "./create_agent.ts";
 
-export const LLM = "claude-haiku-5-5"; // greitas, gerai kalba lietuviškai
+// ── Nustatymai ────────────────────────────────────────────────────────────────
+// LLM sudaro tik ~2 % pokalbio kainos; kreditus daugiausia „valgo“ pokalbio minutės.
+export const LLM = "claude-haiku-5-5";
+const SETTINGS = {
+  tts: {
+    speed: 1.05,                  // šiek tiek gyviau (1.0 = normalu, ribos 0.7–1.2)
+  },
+  turn: {
+    turn_eagerness: "normal",     // senjorai daro pauzes; "eager" juos pertrauktų
+    silence_end_call_timeout: 30, // padeda ragelį po 30 s tylos (taupo kreditus)
+    soft_timeout_config: {        // jei atsakymas vėluoja, Onutė pasako „Mhm...“, kad nebūtų tylos
+      timeout_seconds: 2,
+      message: "Mhm...",
+    },
+  },
+  vad: {
+    background_voice_detection: true, // ignoruoja foninius balsus ir muziką (pvz. hakatono salėje)
+  },
+  asr: {
+    keywords: ["Onutė", "Onute", "Onutės"], // kad neišgirstų „Sonutė“
+  },
+  conversation: {
+    max_duration_seconds: 300,    // max 5 min. per hakatoną (taupo kreditus); demo galima didinti
+  },
+};
+// ──────────────────────────────────────────────────────────────────────────────
 
 const env = Object.fromEntries(
   readFileSync(join(import.meta.dirname, "..", ".env"), "utf8").split(/\r?\n/).filter((l) => /^[A-Z_]+=/.test(l))
@@ -18,9 +43,14 @@ const r = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${env.ELEVENLA
   method: "PATCH",
   headers: { "xi-api-key": env.ELEVENLABS_API_KEY, "Content-Type": "application/json" },
   body: JSON.stringify({
-    conversation_config: { agent: { first_message: firstMessage, prompt: { prompt, llm: LLM } } },
+    conversation_config: {
+      agent: { first_message: firstMessage, prompt: { prompt, llm: LLM } },
+      ...SETTINGS,
+    },
   }),
 });
 if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
-const a = (await r.json()).conversation_config.agent;
-console.log(`✓ agentas atnaujintas | LLM: ${a.prompt.llm} | įrankių: ${a.prompt.tool_ids?.length ?? 0} | prompto ilgis: ${a.prompt.prompt.length}`);
+const c = (await r.json()).conversation_config;
+console.log(`✓ agentas atnaujintas | LLM: ${c.agent.prompt.llm} | įrankių: ${c.agent.prompt.tool_ids?.length ?? 0}`);
+console.log(`  foninių balsų filtras: ${c.vad.background_voice_detection} | ASR raktažodžiai: ${c.asr.keywords.join(", ")}`);
+console.log(`  greitis: ${c.tts.speed} | tyla→padėti: ${c.turn.silence_end_call_timeout}s | „Mhm“ po: ${c.turn.soft_timeout_config.timeout_seconds}s | max trukmė: ${c.conversation.max_duration_seconds}s`);
