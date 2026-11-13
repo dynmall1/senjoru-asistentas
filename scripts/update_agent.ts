@@ -20,6 +20,12 @@ const SETTINGS = {
       message: "Mhm...",
     },
   },
+  vad: {
+    background_voice_detection: true, // ignoruoja foninius balsus ir muziką (pvz. hakatono salėje)
+  },
+  asr: {
+    keywords: ["Onutė", "Onute", "Onutės"], // kad neišgirstų „Sonutė“
+  },
   conversation: {
     max_duration_seconds: 300,    // max 5 min. per hakatoną (taupo kreditus); demo galima didinti
   },
@@ -46,4 +52,5 @@ const r = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${env.ELEVENLA
 if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
 const c = (await r.json()).conversation_config;
 console.log(`✓ agentas atnaujintas | LLM: ${c.agent.prompt.llm} | įrankių: ${c.agent.prompt.tool_ids?.length ?? 0}`);
+console.log(`  foninių balsų filtras: ${c.vad.background_voice_detection} | ASR raktažodžiai: ${c.asr.keywords.join(", ")}`);
 console.log(`  greitis: ${c.tts.speed} | tyla→padėti: ${c.turn.silence_end_call_timeout}s | „Mhm“ po: ${c.turn.soft_timeout_config.timeout_seconds}s | max trukmė: ${c.conversation.max_duration_seconds}s`);
