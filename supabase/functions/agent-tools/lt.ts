@@ -94,6 +94,14 @@ export function parseDay(input: string, now = new Date()): Date | null {
   return vilniusMidnight(base.getUTCFullYear(), base.getUTCMonth() + 1, base.getUTCDate());
 }
 
+/** 1 euras, 2–9 eurai, 10–20 ir apvalūs eurų, trupmeninės sumos „euro“. */
+export function eurai(amount: number): string {
+  if (!Number.isInteger(amount)) return `${amount.toFixed(2).replace(".", ",")} euro`;
+  const last2 = amount % 100, last = amount % 10;
+  const word = (last2 >= 10 && last2 <= 20) || last === 0 ? "eurų" : last === 1 ? "euras" : "eurai";
+  return `${amount} ${word}`;
+}
+
 /** „8 612 34567“, „+370 612 34567“, „61234567“ → „+37061234567“; neatpažinus null. */
 export function normalizePhone(raw: string): string | null {
   let s = raw.replace(/[^\d+]/g, "");

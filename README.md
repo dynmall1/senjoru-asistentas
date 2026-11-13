@@ -35,12 +35,14 @@ Daugiau informacijos: `CLAUDE.md`.
 ## Backend diegimas (Supabase)
 Reikia: Supabase projekto (supabase.com, nemokamas planas).
 
+Projektas: `mrbtpaxkxtjabacvbzta` (jau įdiegtas). Windows PowerShell'e naudokite `npx.cmd` vietoj `npx`.
+
 ```powershell
-npx supabase login                                   # atsidarys naršyklė
-npx supabase link --project-ref <PROJECT_REF>        # ref yra Project URL dalis: https://<ref>.supabase.co
-npx supabase db push --include-seed                  # schema + demo duomenys
-npx supabase secrets set AGENT_SECRET=<sugalvota-ilga-paslaptis>
-npx supabase functions deploy agent-tools --no-verify-jwt
+npx.cmd supabase login                                    # atskirame lange, prašys kodo
+npx.cmd supabase link --project-ref mrbtpaxkxtjabacvbzta
+npx.cmd supabase db push --remote --include-seed --yes    # schema + demo duomenys
+npx.cmd supabase secrets set AGENT_SECRET=<paslaptis> --yes
+npx.cmd supabase functions deploy agent-tools --no-verify-jwt --yes
 ```
 
 ### Įrankių testavimas
@@ -51,7 +53,10 @@ irm "$u/identify_client"     -Method Post -Headers $h -ContentType "application/
 irm "$u/search_services"     -Method Post -Headers $h -ContentType "application/json" -Body '{"query":"kirpimas","city":"Vilnius"}'
 irm "$u/get_available_slots" -Method Post -Headers $h -ContentType "application/json" -Body '{"service_id":"<id iš paieškos>","day":"rytoj"}'
 ```
-Lietuviškų datų testai: `node scripts/test_lt.ts`
+Visos pokalbio eigos testas (naudoja `.env`):
+`powershell -ExecutionPolicy Bypass -File scripts\test_tools.ps1`
+
+Lietuviškų datų ir kainų testai: `node scripts/test_lt.ts`
 
 ## ElevenLabs agentas
 1. ElevenLabs → Agents → Create agent.

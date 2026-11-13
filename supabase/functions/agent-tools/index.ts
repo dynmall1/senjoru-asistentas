@@ -7,7 +7,7 @@
 // kurį agentas gali perskaityti ar perfrazuoti senjorui.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { normalizePhone, parseDay, spokenDateTime, stripDiacritics, vilniusParts } from "./lt.ts";
+import { eurai, normalizePhone, parseDay, spokenDateTime, stripDiacritics, vilniusParts } from "./lt.ts";
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -121,7 +121,7 @@ const tools: Record<string, (a: Args) => Promise<Result>> = {
       provider: p.name,
       address: p.address,
       city: p.city,
-      price: s.price_eur == null ? "nemokamai arba kompensuojama" : `${s.price_eur} eurų`,
+      price: s.price_eur == null ? "nemokamai arba kompensuojama" : eurai(Number(s.price_eur)),
     }));
     return {
       results,
