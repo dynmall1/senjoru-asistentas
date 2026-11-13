@@ -31,3 +31,42 @@ git push -u origin feat/jusu-dalis
 | E | Pitch, HeyGen, Screen Studio | — |
 
 Daugiau informacijos: `CLAUDE.md`.
+
+## Backend diegimas (Supabase)
+Reikia: Supabase projekto (supabase.com, nemokamas planas).
+
+```powershell
+npx supabase login                                   # atsidarys naršyklė
+npx supabase link --project-ref <PROJECT_REF>        # ref yra Project URL dalis: https://<ref>.supabase.co
+npx supabase db push --include-seed                  # schema + demo duomenys
+npx supabase secrets set AGENT_SECRET=<sugalvota-ilga-paslaptis>
+npx supabase functions deploy agent-tools --no-verify-jwt
+```
+
+### Įrankių testavimas
+```powershell
+$h = @{ "x-agent-secret" = "<AGENT_SECRET>" }
+$u = "https://<ref>.supabase.co/functions/v1/agent-tools"
+irm "$u/identify_client"     -Method Post -Headers $h -ContentType "application/json" -Body '{"phone":"+37060000000"}'
+irm "$u/search_services"     -Method Post -Headers $h -ContentType "application/json" -Body '{"query":"kirpimas","city":"Vilnius"}'
+irm "$u/get_available_slots" -Method Post -Headers $h -ContentType "application/json" -Body '{"service_id":"<id iš paieškos>","day":"rytoj"}'
+```
+Lietuviškų datų testai: `node scripts/test_lt.ts`
+
+## ElevenLabs agentas
+1. ElevenLabs → Agents → Create agent.
+2. **First message** ir **System prompt**: iš `agent/system_prompt.md`.
+3. Kalba: lietuvių. Balsas: ramus, šiltas moters balsas.
+4. **Tools** → Add tool → Webhook: kiekvienam įrankiui iš `agent/tools.json` (URL `PROJEKTAS` pakeiskite savo ref, header `x-agent-secret` įrašykite kaip secret).
+5. **Phone numbers** → Twilio numerio prijungimas.
+
+## Agento įrankiai
+| Įrankis | Ką daro |
+|---|---|
+| `identify_client` | Atpažįsta skambinantįjį pagal numerį |
+| `register_client` | Naujas klientas |
+| `search_services` | Paslaugų paieška (iki 3 variantų) |
+| `get_available_slots` | Laisvi laikai („rytoj“, „antradienį“, „rytas“/„popietė“) |
+| `create_booking` | Registracija (atominė, be dvigubų užsakymų) |
+| `list_my_bookings` | Kliento registracijos |
+| `cancel_booking` | Atšaukimas |
