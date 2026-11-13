@@ -5,6 +5,7 @@
 
 import { spokenNow } from "../_shared/lt.ts";
 import { getWeather, WeatherError } from "../_shared/weather.ts";
+import { SearchError, searchWeb } from "../_shared/search.ts";
 
 const AGENT_SECRET = Deno.env.get("AGENT_SECRET");
 
@@ -39,6 +40,21 @@ const tools: Record<string, (a: Args) => Promise<Result>> = {
       return await getWeather(city, str(a, "day"));
     } catch (e) {
       if (e instanceof WeatherError) throw new UserError(e.message);
+      throw e;
+    }
+  },
+
+  /** Paieška internete (Firecrawl): naujienos, renginiai, kainos, faktai. */
+  async web_search(a) {
+    const query = str(a, "query");
+    if (!query) throw new UserError("Nežinau, ko ieškoti. Paklauskite, ką norėtų sužinoti.");
+    try {
+      return await searchWeb(query, Deno.env.get("FIRECRAWL_API_KEY") ?? "", {
+        recent: a.recent === true,
+        withContent: a.details === true,
+      });
+    } catch (e) {
+      if (e instanceof SearchError) throw new UserError(e.message);
       throw e;
     }
   },

@@ -19,6 +19,25 @@
   },
   {
     "type": "webhook",
+    "name": "web_search",
+    "description": "Paieška internete realiu laiku. Naudok naujienoms, renginiams, kainoms, darbo laikui, TV programai, sporto rezultatams, šventėms ir bet kokiems faktams, kurie galėjo pasikeisti ar kurių nežinai tiksliai. Atsakymas: paieškos rezultatų tekstas, kurį reikia trumpai perpasakoti.",
+    "api_schema": {
+      "url": "https://mrbtpaxkxtjabacvbzta.supabase.co/functions/v1/assistant-tools/web_search",
+      "method": "POST",
+      "request_headers": { "x-agent-secret": "AGENT_SECRET" },
+      "request_body_schema": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string", "description": "Paieškos užklausa lietuviškai, trumpa ir konkreti, su vieta ir data jei svarbu, pvz. 'Kauno kalėdinė eglė įžiebimas 2026', 'LRT naujienos šiandien', 'vaistinė Šiauliai darbo laikas sekmadienį'." },
+          "recent": { "type": "boolean", "description": "true, jei klausimas apie naujausius įvykius (naujienos, šios savaitės renginiai). Kitu atveju false." },
+          "details": { "type": "boolean", "description": "Pradžioje VISADA false (greita paieška). true tik tada, kai trumpų aprašymų nepakako atsakyti ir reikia puslapių turinio (užtrunka apie 10 sekundžių)." }
+        },
+        "required": ["query"]
+      }
+    }
+  },
+  {
+    "type": "webhook",
     "name": "get_current_time",
     "description": "Šiandienos data, savaitės diena ir tikslus laikas Lietuvoje. Kviesk, kai klausia 'kokia šiandien diena', 'kelinta valanda', 'kelintas šiandien'.",
     "api_schema": {
