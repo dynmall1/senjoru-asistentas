@@ -6,6 +6,7 @@
 import { spokenNow } from "../_shared/lt.ts";
 import { getWeather, WeatherError } from "../_shared/weather.ts";
 import { SearchError, searchWeb } from "../_shared/search.ts";
+import { findPlace, PlaceError } from "../_shared/places.ts";
 
 const AGENT_SECRET = Deno.env.get("AGENT_SECRET");
 
@@ -40,6 +41,18 @@ const tools: Record<string, (a: Args) => Promise<Result>> = {
       return await getWeather(city, str(a, "day"));
     } catch (e) {
       if (e instanceof WeatherError) throw new UserError(e.message);
+      throw e;
+    }
+  },
+
+  /** Vietos iš žemėlapio (OpenStreetMap): darbo laikas, adresas, telefonas, kas arčiausiai. */
+  async find_place(a) {
+    const query = str(a, "query");
+    if (!query) throw new UserError("Nežinau, kokios vietos ieškoti. Paklauskite, ko ieško.");
+    try {
+      return await findPlace(query, { city: str(a, "city"), near: str(a, "near") });
+    } catch (e) {
+      if (e instanceof PlaceError) throw new UserError(e.message);
       throw e;
     }
   },

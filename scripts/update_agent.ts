@@ -10,13 +10,18 @@ import { readPrompt } from "./create_agent.ts";
 export const LLM = "claude-haiku-5-5";
 const SETTINGS = {
   tts: {
+    // v2: v4_turbo (naujesnis, palaiko LT) vietoj v3_conversational, kuris „strigdavo“.
+    // Grįžti: model_id "eleven_v3_conversational", expressive_mode true (arba naudoti atsarginį agentą).
+    model_id: "eleven_v4_turbo",
+    expressive_mode: false,       // be [happy]/[slow] žymių: jos darė balsą nelygų
+    stability: 0.6,               // stabilesnis, lygesnis balsas (0.5 buvo)
     speed: 1.05,                  // šiek tiek gyviau (1.0 = normalu, ribos 0.7–1.2)
   },
   turn: {
     turn_eagerness: "normal",     // senjorai daro pauzes; "eager" juos pertrauktų
     silence_end_call_timeout: 30, // padeda ragelį po 30 s tylos (taupo kreditus)
     soft_timeout_config: {        // jei atsakymas vėluoja, Onutė pasako „Mhm...“, kad nebūtų tylos
-      timeout_seconds: 2,
+      timeout_seconds: 3,         // 2 s buvo per greitai: „Mhm...“ įsiterpdavo prieš kiekvieną atsakymą
       message: "Mhm...",
     },
   },
@@ -52,5 +57,6 @@ const r = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${env.ELEVENLA
 if (!r.ok) throw new Error(`${r.status}: ${await r.text()}`);
 const c = (await r.json()).conversation_config;
 console.log(`✓ agentas atnaujintas | LLM: ${c.agent.prompt.llm} | įrankių: ${c.agent.prompt.tool_ids?.length ?? 0}`);
+console.log(`  TTS: ${c.tts.model_id} | expressive: ${c.tts.expressive_mode} | stabilumas: ${c.tts.stability}`);
 console.log(`  foninių balsų filtras: ${c.vad.background_voice_detection} | ASR raktažodžiai: ${c.asr.keywords.join(", ")}`);
 console.log(`  greitis: ${c.tts.speed} | tyla→padėti: ${c.turn.silence_end_call_timeout}s | „Mhm“ po: ${c.turn.soft_timeout_config.timeout_seconds}s | max trukmė: ${c.conversation.max_duration_seconds}s`);
