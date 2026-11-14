@@ -100,6 +100,10 @@ Deno.serve(async (req) => {
   } catch (e) {
     if (e instanceof UserError) return json({ ok: false, message: e.message });
     console.error(`[${name}]`, e);
-    return json({ ok: false, message: "Šiuo metu nepavyko gauti informacijos. Atsiprašykite ir pasiūlykite paklausti vėliau." });
+    return json({
+      ok: false,
+      message: "Šiuo metu nepavyko gauti informacijos. Atsiprašykite ir pasiūlykite paklausti vėliau.",
+      debug: String((e as Error)?.message ?? e).slice(0, 300), // diagnostikai; agentas remiasi `message`
+    });
   }
 });

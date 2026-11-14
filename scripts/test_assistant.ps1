@@ -18,7 +18,12 @@ Call get_weather @{ city = 'Kaune'; day = 'rytoj' }
 Call get_weather @{ city = 'Šiauliai'; day = 'šeštadienį' }
 Call get_weather @{ city = 'Neegzistuojantis' }
 Call get_weather @{}
-Call web_search @{ query = 'Žalgirio rungtynės rezultatas' }
+Call find_place @{ query = 'Halės turgus'; city = 'Vilnius' }
+Call find_place @{ query = 'poliklinika'; near = 'ISM universitetas'; city = 'Vilnius' }
+Call find_place @{ query = 'vaistinė'; near = 'Savanorių prospektas 100'; city = 'Kaunas' }
+Call find_place @{}
+Call web_search @{ query = 'Urmo bazė Kaunas darbo laikas' }
+Call web_search @{ query = 'Žalgirio rungtynės rezultatas'; recent = $true }
 Call web_search @{ query = 'svarbiausios naujienos Lietuvoje šiandien'; recent = $true }
 Call web_search @{}
 

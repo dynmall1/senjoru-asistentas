@@ -17,22 +17,22 @@ const NEARBY_BOX_DEG = 0.02; // ~2 km į kiekvieną pusę
 type Place = { name: string; address: string; lat: number; lon: number; tags: Record<string, string>; distance_m?: number };
 
 // ── Kategorijos: lietuviški žodžiai → Nominatim raktažodžiai (OSM „special phrases“) ──
-const CATEGORIES: { stems: string[]; label: string; keywords: string[] }[] = [
-  { stems: ["poliklin", "gydytoj", "klinik", "medicin", "sveikatos"], label: "gydymo įstaiga", keywords: ["clinic", "doctors"] },
-  { stems: ["ligonin"], label: "ligoninė", keywords: ["hospital"] },
-  { stems: ["vaistin"], label: "vaistinė", keywords: ["pharmacy"] },
-  { stems: ["odontolog", "dant"], label: "odontologas", keywords: ["dentist"] },
-  { stems: ["parduotuv", "maxima", "rimi", "lidl", "norfa", "maist", "prekybos"], label: "parduotuvė", keywords: ["supermarket", "convenience store"] },
-  { stems: ["pastas", "pasto", "pastomat"], label: "paštas", keywords: ["post office"] },
-  { stems: ["bankomat"], label: "bankomatas", keywords: ["atm"] },
-  { stems: ["bank"], label: "bankas", keywords: ["bank"] },
-  { stems: ["turg"], label: "turgus", keywords: ["marketplace"] },
-  { stems: ["baznyc", "koscio", "cerkv"], label: "bažnyčia", keywords: ["church"] },
-  { stems: ["kirpykl", "kirpej"], label: "kirpykla", keywords: ["hairdresser"] },
-  { stems: ["kavin", "restoran", "valgykl"], label: "kavinė", keywords: ["cafe", "restaurant"] },
-  { stems: ["degalin"], label: "degalinė", keywords: ["fuel"] },
-  { stems: ["bibliotek"], label: "biblioteka", keywords: ["library"] },
-  { stems: ["seniunij", "savivaldyb"], label: "seniūnija", keywords: ["townhall"] },
+const CATEGORIES: { stems: string[]; label: string; names: string[]; keywords: string[] }[] = [
+  { stems: ["poliklin", "gydytoj", "klinik", "medicin", "sveikatos"], label: "gydymo įstaiga", names: ["poliklinika", "klinika", "medicinos centras"], keywords: ["clinic", "doctors"] },
+  { stems: ["ligonin"], label: "ligoninė", names: ["ligoninė"], keywords: ["hospital"] },
+  { stems: ["vaistin"], label: "vaistinė", names: ["vaistinė", "Eurovaistinė"], keywords: ["pharmacy"] },
+  { stems: ["odontolog", "dant"], label: "odontologas", names: ["odontologijos klinika"], keywords: ["dentist"] },
+  { stems: ["parduotuv", "maxima", "rimi", "lidl", "norfa", "maist", "prekybos"], label: "parduotuvė", names: ["Maxima", "Iki", "Rimi"], keywords: ["supermarket", "convenience store"] },
+  { stems: ["pastas", "pasto", "pastomat"], label: "paštas", names: ["paštas"], keywords: ["post office"] },
+  { stems: ["bankomat"], label: "bankomatas", names: ["bankomatas"], keywords: ["atm"] },
+  { stems: ["bank"], label: "bankas", names: ["Swedbank", "SEB"], keywords: ["bank"] },
+  { stems: ["turg"], label: "turgus", names: ["turgus"], keywords: ["marketplace"] },
+  { stems: ["baznyc", "koscio", "cerkv"], label: "bažnyčia", names: ["bažnyčia"], keywords: ["church"] },
+  { stems: ["kirpykl", "kirpej"], label: "kirpykla", names: ["kirpykla"], keywords: ["hairdresser"] },
+  { stems: ["kavin", "restoran", "valgykl"], label: "kavinė", names: ["kavinė"], keywords: ["cafe", "restaurant"] },
+  { stems: ["degalin"], label: "degalinė", names: ["Circle K", "Viada"], keywords: ["fuel"] },
+  { stems: ["bibliotek"], label: "biblioteka", names: ["biblioteka"], keywords: ["library"] },
+  { stems: ["seniunij", "savivaldyb"], label: "seniūnija", names: ["seniūnija"], keywords: ["townhall"] },
 ];
 
 /** Kategorija pagal žodžių pradžias („vaistinę“ → vaistinė), ne pagal bet kokią teksto dalį. */
@@ -116,6 +116,42 @@ async function nominatim(path: string) {
   return await r.json() as any[];
 }
 
+/** Nominatim, o jei jis neveikia ar blokuoja (pvz. debesų serverių IP), grąžina null. */
+async function nominatimSafe(path: string) {
+  try {
+    return await nominatim(path);
+  } catch (e) {
+    console.warn("nominatim nepasiekiamas:", (e as Error).message);
+    return null;
+  }
+}
+
+/** Photon „kas arti“ (atsarginis, kai Nominatim neveikia): ieško pagal pavadinimų žodžius aplink tašką. */
+// deno-lint-ignore no-explicit-any
+async function photonNearby(words: string[], origin: { lat: number; lon: number }): Promise<any[]> {
+  const out = [];
+  for (const w of words) {
+    try {
+      const r = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(w)}&limit=15&lat=${origin.lat}&lon=${origin.lon}&location_bias_scale=0.1&zoom=16`, {
+        headers: UA, signal: AbortSignal.timeout(3_000),
+      });
+      if (!r.ok) continue;
+      // deno-lint-ignore no-explicit-any
+      for (const f of (await r.json()).features as any[]) {
+        if (f.properties.countrycode !== "LT" || f.properties.osm_key === "highway") continue;
+        const pr = f.properties;
+        out.push({
+          osm_type: pr.osm_type, osm_id: pr.osm_id, name: pr.name,
+          lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0],
+          address: { road: pr.street, house_number: pr.housenumber, city: pr.city },
+          extratags: {},
+        });
+      }
+    } catch { /* bandome kitą žodį */ }
+  }
+  return out;
+}
+
 /** Photon (atsarginis): atlaidi paieška; grąžina tokio pat formato objektus kaip Nominatim. */
 // deno-lint-ignore no-explicit-any
 async function photonFallback(query: string): Promise<any[]> {
@@ -128,9 +164,16 @@ async function photonFallback(query: string): Promise<any[]> {
     // deno-lint-ignore no-explicit-any
     const feats = (j.features as any[]).filter((f) => f.properties.countrycode === "LT" && f.properties.osm_key !== "highway");
     if (!feats.length) return [];
-    // Darbo laikas ir telefonas: Nominatim lookup pagal OSM ID
-    const ids = feats.slice(0, MAX_RESULTS).map((f) => `${f.properties.osm_type}${f.properties.osm_id}`).join(",");
-    return await nominatim(`/lookup?osm_ids=${ids}`);
+    // Darbo laikas ir telefonas: Nominatim lookup pagal OSM ID (jei Nominatim neveikia, be jų)
+    const top = feats.slice(0, MAX_RESULTS);
+    const ids = top.map((f) => `${f.properties.osm_type}${f.properties.osm_id}`).join(",");
+    const looked = await nominatimSafe(`/lookup?osm_ids=${ids}`);
+    if (looked?.length) return looked;
+    return top.map((f) => ({
+      name: f.properties.name, lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0],
+      address: { road: f.properties.street, house_number: f.properties.housenumber, city: f.properties.city },
+      extratags: {},
+    }));
   } catch {
     return [];
   }
@@ -191,7 +234,7 @@ export async function findPlace(query: string, opts: { city?: string; near?: str
     const near = opts.near
       .replace(/\bprospekt\w*/gi, "pr.").replace(/\bgatv\w*/gi, "g.").replace(/\balėj\w*/gi, "al.")
       .replace(/\bplent\w*/gi, "pl.").replace(/\baikšt\w*/gi, "a.");
-    let originRaw = (await nominatim(`/search?q=${encodeURIComponent(near + city)}&countrycodes=lt&limit=1`))[0];
+    let originRaw = (await nominatimSafe(`/search?q=${encodeURIComponent(near + city)}&countrycodes=lt&limit=1`))?.[0];
     if (!originRaw) originRaw = (await photonFallback(`${opts.near} ${opts.city ?? ""}`))[0];
     if (!originRaw) throw new PlaceError(`Neradau vietos „${opts.near}“. Paprašykite pasakyti gatvę ir namo numerį.`);
     const origin = { lat: +originRaw.lat, lon: +originRaw.lon };
@@ -199,13 +242,22 @@ export async function findPlace(query: string, opts: { city?: string; near?: str
     const viewbox = `${origin.lon - d * 1.6},${origin.lat + d},${origin.lon + d * 1.6},${origin.lat - d}`;
 
     const found = new Map<string, Place>();
+    let nominatimWorks = true;
     for (const kw of category.keywords) {
-      const rows = await nominatim(`/search?q=${encodeURIComponent(kw)}&viewbox=${viewbox}&bounded=1&limit=15`);
+      const rows = await nominatimSafe(`/search?q=${encodeURIComponent(kw)}&viewbox=${viewbox}&bounded=1&limit=15`);
+      if (rows === null) { nominatimWorks = false; break; }
       for (const r of rows) {
         const p = toPlace(r, origin);
         if (p.name) found.set(`${r.osm_type}${r.osm_id}`, p);
       }
       if (found.size >= MAX_RESULTS * 2) break;
+    }
+    if (!nominatimWorks) {
+      // Atsarginis kelias: Photon pagal lietuviškus pavadinimų žodžius (be darbo laiko)
+      for (const r of await photonNearby(category.names, origin)) {
+        const p = toPlace(r, origin);
+        if (p.name && p.distance_m! <= 3000) found.set(`${r.osm_type}${r.osm_id}`, p);
+      }
     }
     const places = [...found.values()].sort((a, b) => a.distance_m! - b.distance_m!).slice(0, MAX_RESULTS);
     const originName = opts.near;
@@ -219,7 +271,7 @@ export async function findPlace(query: string, opts: { city?: string; near?: str
   }
 
   // B) Konkreti vieta pagal pavadinimą
-  let rows = await nominatim(`/search?q=${encodeURIComponent(query + city)}&countrycodes=lt&limit=${MAX_RESULTS}`);
+  let rows = (await nominatimSafe(`/search?q=${encodeURIComponent(query + city)}&countrycodes=lt&limit=${MAX_RESULTS}`)) ?? [];
   rows = rows.filter((r) => r.category !== "highway" && r.category !== "boundary");
   if (!rows.length) rows = await photonFallback(`${query} ${opts.city ?? ""}`);
   if (!rows.length) throw new PlaceError(`Žemėlapyje neradau „${query}“. Pabandykite paieškoti internete (web_search).`);
