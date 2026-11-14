@@ -34,8 +34,10 @@ export async function searchWeb(query: string, apiKey: string, opts: { recent?: 
   if (!apiKey) throw new Error("FIRECRAWL_API_KEY nenustatytas");
   const withContent = opts.withContent ?? false;
 
+  // Firecrawl „location: Lithuania“ realiai neriboja, todėl be šalies gaudavome Serbijos poliklinikas
+  const q = /lietuv|vilni|kaun|klaip|šiaul|siaul|panev/i.test(query) ? query : `${query} Lietuva`;
   const body: Record<string, unknown> = {
-    query: `${query} -site:facebook.com -site:instagram.com -site:tiktok.com`,
+    query: `${q} -site:facebook.com -site:instagram.com -site:tiktok.com`,
     limit: withContent ? 3 : 8,          // daugiau rezultatų, nes dalį atmesime
     sources: opts.recent ? ["news", "web"] : ["web"],
     location: "Lithuania",

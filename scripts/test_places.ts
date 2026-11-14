@@ -13,6 +13,8 @@ assert.equal(hoursToday("Mo-Fr 08:00-18:00; Sa 09:00-14:00", sat), "šiandien di
 assert.equal(hoursToday("Mo-Fr 08:00-18:00; Sa off", sat), "šiandien nedirba");
 assert.equal(hoursToday("Tu-Th 07:00-18:00; Fr 07:00-19:00; Sa 07:00-18:00; Su 07:00-16:00; Mo off", sat), "šiandien dirba 7:00–18:00");
 assert.equal(hoursToday("24/7", sat), "dirba visą parą");
+assert.equal(hoursToday("Mo-Fr 07:00-20:00", sat), "šiandien nedirba"); // šeštadienio grafike nėra
+assert.equal(hoursToday("keista reikšmė", sat), null);
 assert.equal(matchCategory("artimiausia poliklinika")?.label, "gydymo įstaiga");
 assert.equal(matchCategory("vaistinę")?.label, "vaistinė");
 assert.equal(matchCategory("paštas")?.label, "paštas");

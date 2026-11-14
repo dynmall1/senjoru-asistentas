@@ -7,7 +7,9 @@ import { readPrompt } from "./create_agent.ts";
 
 // ── Nustatymai ────────────────────────────────────────────────────────────────
 // LLM sudaro tik ~2 % pokalbio kainos; kreditus daugiausia „valgo“ pokalbio minutės.
-export const LLM = "claude-haiku-5-5";
+// v2: sonnet vietoj haiku, nes haiku lietuviškai darė gramatikos klaidų („Atsiprašau, Jūs, ...“).
+// LLM kaina pakyla, bet tai vis tiek ~5–10 % pokalbio kainos. Grįžti: "claude-haiku-5-5".
+export const LLM = "claude-sonnet-5-5";
 const SETTINGS = {
   tts: {
     // v2: v4_turbo (naujesnis, palaiko LT) vietoj v3_conversational, kuris „strigdavo“.
@@ -29,7 +31,14 @@ const SETTINGS = {
     background_voice_detection: true, // ignoruoja foninius balsus ir muziką (pvz. hakatono salėje)
   },
   asr: {
-    keywords: ["Onutė", "Onute", "Onutės"], // kad neišgirstų „Sonutė“
+    // Žodžiai, kuriuos kalbos atpažinimas dažnai iškraipo (vardai, trumpiniai, vietos)
+    keywords: [
+      "Onutė", "Onute", "Onutės",
+      "ISM", "VU", "KTU", "VDU", "LSMU", "VILNIUS TECH", "Mykolo Romerio",
+      "poliklinika", "vaistinė", "Santaros klinikos", "Kauno klinikos",
+      "Akropolis", "Maxima", "Iki", "Rimi", "Lidl", "Norfa", "Halės turgus", "Urmo bazė",
+      "Žalgiris", "LRT", "Sodra", "seniūnija",
+    ],
   },
   conversation: {
     max_duration_seconds: 300,    // max 5 min. per hakatoną (taupo kreditus); demo galima didinti

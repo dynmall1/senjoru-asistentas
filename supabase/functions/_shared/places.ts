@@ -65,12 +65,14 @@ export function hoursToday(oh: string, now = new Date()): string | null {
   if (/^24\/7$/.test(oh.trim())) return "dirba visą parą";
   const today = OSM_DAYS[vilniusParts(now).weekday];
   let result: string | null = null;
+  let parsedAny = false;
   for (const rule of oh.split(";").map((r) => r.trim()).filter(Boolean)) {
     const m = rule.match(/^((?:(?:Mo|Tu|We|Th|Fr|Sa|Su)(?:-(?:Mo|Tu|We|Th|Fr|Sa|Su))?,?)+)\s+(.+)$/);
     if (!m) {
-      if (/^\d{2}:\d{2}/.test(rule)) result = rule; // be dienų = kasdien
+      if (/^\d{1,2}:\d{2}/.test(rule)) { result = rule; parsedAny = true; } // be dienų = kasdien
       continue;
     }
+    parsedAny = true;
     const days = new Set<string>();
     for (const part of m[1].split(",").filter(Boolean)) {
       const [a, b] = part.split("-");
@@ -81,7 +83,8 @@ export function hoursToday(oh: string, now = new Date()): string | null {
     }
     if (days.has(today)) result = m[2].trim(); // vėlesnė taisyklė perrašo ankstesnę
   }
-  if (result === null) return null;
+  // OSM: diena, kurios nėra grafike, reiškia „nedirba“ (pvz. „Mo-Fr ...“ šeštadienį)
+  if (result === null) return parsedAny ? "šiandien nedirba" : null;
   if (/^(off|closed)$/.test(result)) return "šiandien nedirba";
   return `šiandien dirba ${translateHours(result)}`;
 }
