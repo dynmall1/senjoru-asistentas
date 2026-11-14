@@ -66,7 +66,9 @@ export function hoursToday(oh: string, now = new Date()): string | null {
   const today = OSM_DAYS[vilniusParts(now).weekday];
   let result: string | null = null;
   let parsedAny = false;
-  for (const rule of oh.split(";").map((r) => r.trim()).filter(Boolean)) {
+  // Taisyklės skiriamos „;“, bet OSM žemėlapyje dažnai ir „, “ prieš dienos kodą („Tu-Fr 8-17, Sa-Su 8-14“)
+  const rules = oh.split(/;|,\s*(?=(?:Mo|Tu|We|Th|Fr|Sa|Su|PH)\b)/).map((r) => r.trim()).filter(Boolean);
+  for (const rule of rules) {
     const m = rule.match(/^((?:(?:Mo|Tu|We|Th|Fr|Sa|Su)(?:-(?:Mo|Tu|We|Th|Fr|Sa|Su))?,?)+)\s+(.+)$/);
     if (!m) {
       if (/^\d{1,2}:\d{2}/.test(rule)) { result = rule; parsedAny = true; } // be dienų = kasdien
