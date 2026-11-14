@@ -259,19 +259,23 @@ export async function findPlace(query: string, opts: { city?: string; near?: str
     if (!originRaw) originRaw = (await photonFallback(`${opts.near} ${opts.city ?? ""}`))[0];
     if (!originRaw) throw new PlaceError(`Neradau vietos „${opts.near}“. Paprašykite pasakyti gatvę ir namo numerį.`);
     const origin = { lat: +originRaw.lat, lon: +originRaw.lon };
-    const d = NEARBY_BOX_DEG;
-    const viewbox = `${origin.lon - d * 1.6},${origin.lat + d},${origin.lon + d * 1.6},${origin.lat - d}`;
 
+    // Nominatim ribotame plote grąžina „svarbiausias“, ne artimiausias vietas, todėl
+    // pradedame nuo mažo ploto (~650 m) ir plečiame tik jei per mažai rezultatų.
+    // Kiekviename plote ieškome VISŲ kategorijos tipų (pvz. supermarket IR convenience store).
     const found = new Map<string, Place>();
     let nominatimWorks = true;
-    for (const kw of category.keywords) {
-      const rows = await nominatimSafe(`/search?q=${encodeURIComponent(kw)}&viewbox=${viewbox}&bounded=1&limit=15`);
-      if (rows === null) { nominatimWorks = false; break; }
-      for (const r of rows) {
-        const p = toPlace(r, origin);
-        if (p.name) found.set(`${r.osm_type}${r.osm_id}`, p);
+    for (const d of [0.006, NEARBY_BOX_DEG]) {
+      const viewbox = `${origin.lon - d * 1.6},${origin.lat + d},${origin.lon + d * 1.6},${origin.lat - d}`;
+      for (const kw of category.keywords) {
+        const rows = await nominatimSafe(`/search?q=${encodeURIComponent(kw)}&viewbox=${viewbox}&bounded=1&limit=40`);
+        if (rows === null) { nominatimWorks = false; break; }
+        for (const r of rows) {
+          const p = toPlace(r, origin);
+          if (p.name) found.set(`${r.osm_type}${r.osm_id}`, p);
+        }
       }
-      if (found.size >= MAX_RESULTS * 2) break;
+      if (!nominatimWorks || found.size >= MAX_RESULTS) break;
     }
     if (!nominatimWorks) {
       // Atsarginis kelias: Photon pagal lietuviškus pavadinimų žodžius (be darbo laiko)

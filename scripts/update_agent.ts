@@ -7,9 +7,11 @@ import { readPrompt } from "./create_agent.ts";
 
 // ── Nustatymai ────────────────────────────────────────────────────────────────
 // LLM sudaro tik ~2 % pokalbio kainos; kreditus daugiausia „valgo“ pokalbio minutės.
-// v2: sonnet vietoj haiku, nes haiku lietuviškai darė gramatikos klaidų („Atsiprašau, Jūs, ...“).
-// LLM kaina pakyla, bet tai vis tiek ~5–10 % pokalbio kainos. Grįžti: "claude-haiku-5-5".
-export const LLM = "claude-sonnet-5-5";
+// LLM istorija (126 s skambutis):
+//   claude-haiku-5-5:  ~10–20 kreditų, bet lietuviškai darė gramatikos klaidų
+//   claude-sonnet-5-5: 478 kreditai (~1/3 skambučio kainos!), per brangu
+//   gemini-3.5-flash:  bandome: greitas, pigus, Gemini paprastai gerai moka lietuviškai
+export const LLM = "gemini-3.5-flash";
 const SETTINGS = {
   tts: {
     // v2: v4_turbo (naujesnis, palaiko LT) vietoj v3_conversational, kuris „strigdavo“.
@@ -22,8 +24,9 @@ const SETTINGS = {
   turn: {
     turn_eagerness: "normal",     // senjorai daro pauzes; "eager" juos pertrauktų
     silence_end_call_timeout: 30, // padeda ragelį po 30 s tylos (taupo kreditus)
-    soft_timeout_config: {        // jei atsakymas vėluoja, Onutė pasako „Mhm...“, kad nebūtų tylos
-      timeout_seconds: 3,         // 2 s buvo per greitai: „Mhm...“ įsiterpdavo prieš kiekvieną atsakymą
+    turn_timeout: 20,             // 7 s buvo per mažai: po trumpos tylos klausdavo „Ar vis dar mane girdite?“
+    soft_timeout_config: {        // išjungta: „Mhm...“ įsiterpdavo prieš atsakymus; įrankiai patys sako „Akimirką“
+      timeout_seconds: -1,
       message: "Mhm...",
     },
   },
@@ -68,4 +71,4 @@ const c = (await r.json()).conversation_config;
 console.log(`✓ agentas atnaujintas | LLM: ${c.agent.prompt.llm} | įrankių: ${c.agent.prompt.tool_ids?.length ?? 0}`);
 console.log(`  TTS: ${c.tts.model_id} | expressive: ${c.tts.expressive_mode} | stabilumas: ${c.tts.stability}`);
 console.log(`  foninių balsų filtras: ${c.vad.background_voice_detection} | ASR raktažodžiai: ${c.asr.keywords.join(", ")}`);
-console.log(`  greitis: ${c.tts.speed} | tyla→padėti: ${c.turn.silence_end_call_timeout}s | „Mhm“ po: ${c.turn.soft_timeout_config.timeout_seconds}s | max trukmė: ${c.conversation.max_duration_seconds}s`);
+console.log(`  greitis: ${c.tts.speed} | tyla→padėti: ${c.turn.silence_end_call_timeout}s | „Mhm“ po: ${c.turn.soft_timeout_config.timeout_seconds}s | tylos riba: ${c.turn.turn_timeout}s | max trukmė: ${c.conversation.max_duration_seconds}s`);
