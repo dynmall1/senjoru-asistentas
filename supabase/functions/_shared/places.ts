@@ -17,12 +17,14 @@ const NEARBY_BOX_DEG = 0.02; // ~2 km į kiekvieną pusę
 type Place = { name: string; address: string; lat: number; lon: number; tags: Record<string, string>; distance_m?: number };
 
 // ── Kategorijos: lietuviški žodžiai → Nominatim raktažodžiai (OSM „special phrases“) ──
-const CATEGORIES: { stems: string[]; label: string; names: string[]; keywords: string[] }[] = [
-  { stems: ["poliklin", "gydytoj", "klinik", "medicin", "sveikatos"], label: "gydymo įstaiga", names: ["poliklinika", "klinika", "medicinos centras"], keywords: ["clinic", "doctors"] },
+const CATEGORIES: { stems: string[]; label: string; names: string[]; keywords: string[]; exclude?: RegExp }[] = [
+  { stems: ["poliklin", "gydytoj", "klinik", "medicin", "sveikatos"], label: "gydymo įstaiga", names: ["poliklinika", "klinika", "medicinos centras"], keywords: ["clinic", "doctors"],
+    exclude: /odontolog|dant|denti|dental|grož|estet|kosmet|veterin|optik|akinių|masaž|psicholog/i },
   { stems: ["ligonin"], label: "ligoninė", names: ["ligoninė"], keywords: ["hospital"] },
   { stems: ["vaistin"], label: "vaistinė", names: ["vaistinė", "Eurovaistinė"], keywords: ["pharmacy"] },
   { stems: ["odontolog", "dant"], label: "odontologas", names: ["odontologijos klinika"], keywords: ["dentist"] },
-  { stems: ["parduotuv", "maxima", "rimi", "lidl", "norfa", "maist", "prekybos"], label: "parduotuvė", names: ["Maxima", "Iki", "Rimi"], keywords: ["supermarket", "convenience store"] },
+  { stems: ["parduotuv", "maxima", "rimi", "lidl", "norfa", "maist", "prekybos"], label: "parduotuvė", names: ["Maxima", "Iki", "Rimi"], keywords: ["supermarket", "convenience store"],
+    exclude: /circle k|viada|orlen|neste|lukoil|emsi|baltic petroleum|alauša|degalin/i },
   { stems: ["pastas", "pasto", "pastomat"], label: "paštas", names: ["paštas"], keywords: ["post office"] },
   { stems: ["bankomat"], label: "bankomatas", names: ["bankomatas"], keywords: ["atm"] },
   { stems: ["bank"], label: "bankas", names: ["Swedbank", "SEB"], keywords: ["bank"] },
@@ -234,6 +236,7 @@ function describe(p: Place, now: Date): string {
 const placeJson = (p: Place) => ({
   name: p.name, address: p.address,
   distance: p.distance_m != null ? spokenDistance(p.distance_m) : undefined,
+  distance_m: p.distance_m, lat: p.lat, lon: p.lon,
   opening_hours: p.tags.opening_hours ?? null,
   phone: p.tags.phone ?? p.tags["contact:phone"] ?? null,
 });
@@ -272,7 +275,7 @@ export async function findPlace(query: string, opts: { city?: string; near?: str
         if (rows === null) { nominatimWorks = false; break; }
         for (const r of rows) {
           const p = toPlace(r, origin);
-          if (p.name) found.set(`${r.osm_type}${r.osm_id}`, p);
+          if (p.name && !category.exclude?.test(p.name)) found.set(`${r.osm_type}${r.osm_id}`, p);
         }
       }
       if (!nominatimWorks || found.size >= MAX_RESULTS) break;
@@ -281,7 +284,7 @@ export async function findPlace(query: string, opts: { city?: string; near?: str
       // Atsarginis kelias: Photon pagal lietuviškus pavadinimų žodžius (be darbo laiko)
       for (const r of await photonNearby(category.names, origin)) {
         const p = toPlace(r, origin);
-        if (p.name && p.distance_m! <= 3000) found.set(`${r.osm_type}${r.osm_id}`, p);
+        if (p.name && p.distance_m! <= 3000 && !category.exclude?.test(p.name)) found.set(`${r.osm_type}${r.osm_id}`, p);
       }
     }
     const places = [...found.values()].sort((a, b) => a.distance_m! - b.distance_m!).slice(0, MAX_RESULTS);
@@ -289,6 +292,7 @@ export async function findPlace(query: string, opts: { city?: string; near?: str
     if (!places.length) throw new PlaceError(`Netoli „${originName}“ neradau: ${category.label}. Galima paieškoti internete.`);
 
     return {
+      origin: { name: originRaw.display_name ?? originRaw.name, lat: origin.lat, lon: origin.lon },
       places: places.map(placeJson),
       message: `Artimiausios vietos (${category.label}) šalia „${originName}“: ` +
         places.map((p, i) => `${i + 1}) ${describe(p, now)}`).join("; "),
