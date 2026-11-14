@@ -34,7 +34,12 @@ for (const t of c.transcript) {
   const info = t.role === "agent" && total != null
     ? `⏱ ${total.toFixed(1)}s (laukta ${s("convai_turn_silence_before_initiation")?.toFixed(1)} + LLM ${s("convai_llm_service_ttfb")?.toFixed(1)} + TTS ${s("convai_tts_service_ttfb")?.toFixed(1)})`
     : "";
-  console.log(`${t.role === "agent" ? "Onutė " : "Žmogus"} ${String(t.time_in_call_secs).padStart(3)}s ${tools ? `🔧${tools}(${toolLat}s) ` : ""}${info}\n        ${(t.message ?? "").slice(0, 140)}`);
+  console.log(`${t.role === "agent" ? "Onutė " : "Žmogus"} ${String(t.time_in_call_secs).padStart(3)}s ${tools ? `🔧${tools}(${toolLat}s) ` : ""}${info}\n        ${(t.message ?? "").slice(0, 200)}`);
+  for (const tc of t.tool_calls ?? []) console.log(`        🔧 ${tc.tool_name} ${tc.params_as_json}`);
+  for (const tr of t.tool_results ?? []) {
+    const v = String(tr.result_value ?? "").replace(/\\n/g, " ").replace(/\s+/g, " ");
+    console.log(`        ↳ ${tr.is_error ? "KLAIDA " : ""}${v.slice(0, 400)}`);
+  }
 }
 if (delays.length) {
   console.log(`\nVidutinis atsakymo laikas: ${(delays.reduce((a, b) => a + b, 0) / delays.length).toFixed(2)} s`);
