@@ -10,8 +10,9 @@ import { readPrompt } from "./create_agent.ts";
 // LLM istorija (126 s skambutis):
 //   claude-haiku-5-5:  ~10–20 kreditų, bet lietuviškai darė gramatikos klaidų
 //   claude-sonnet-5-5: 478 kreditai (~1/3 skambučio kainos!), per brangu
-//   gemini-3.5-flash:  bandome: greitas, pigus, Gemini paprastai gerai moka lietuviškai
-export const LLM = "gemini-3.5-flash";
+//   eval_llm.ts (3 scenarijai, 2026-11-14): gemini-3.6-flash 3/3, švariausia kalba, trumpi atsakymai,
+//   pats pasitikslino adresą; gemini-3.5-flash 3/3; sonnet 3/3 (brangus); haiku 3/3 (smulkios klaidos); gpt-5.4-mini 1/3
+export const LLM = "gemini-3.6-flash";
 const SETTINGS = {
   tts: {
     // v2: v4_turbo (naujesnis, palaiko LT) vietoj v3_conversational, kuris „strigdavo“.

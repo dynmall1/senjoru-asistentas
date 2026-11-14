@@ -119,7 +119,8 @@ let lastNominatim = 0;
  * (tie patys OSM duomenys, bet neblokuoja debesų serverių; nemokamas planas su raktu).
  * Kitaip viešas Nominatim (politika: ≤1 užklausa/s), kuris Supabase serverius blokuoja.
  */
-async function nominatim(path: string) {
+// deno-lint-ignore no-explicit-any
+async function nominatim(path: string, attempt = 0): Promise<any[]> {
   const liqKey = getEnv("LOCATIONIQ_API_KEY");
   const minGap = liqKey ? 550 : 1_050; // LocationIQ nemokamas: 2 užklausos/s
   const wait = lastNominatim + minGap - Date.now();
@@ -131,6 +132,11 @@ async function nominatim(path: string) {
     : `${NOMINATIM}${path}&format=jsonv2&extratags=1&addressdetails=1&accept-language=lt`;
   const r = await fetch(url, { headers: UA, signal: AbortSignal.timeout(liqKey ? 4_000 : 3_000) });
   if (r.status === 404 && liqKey) return []; // LocationIQ „nerasta“ grąžina 404
+  // 429 = per daug užklausų per sekundę (nemokamas planas): palaukiame ir kartojame
+  if (r.status === 429 && attempt < 3) {
+    await new Promise((res) => setTimeout(res, 700 * (attempt + 1)));
+    return nominatim(path, attempt + 1);
+  }
   if (!r.ok) throw new Error(`${liqKey ? "locationiq" : "nominatim"} ${r.status}`);
   // deno-lint-ignore no-explicit-any
   const rows = await r.json() as any[];
@@ -202,6 +208,45 @@ async function photonFallback(query: string): Promise<any[]> {
   }
 }
 
+// Didmiesčiai turi bendravardžių kaimų (pvz. kaimas „Šiauliai“ Širvintų r.), todėl jiems tikriname ir apskritį.
+const CITY_COUNTY: Record<string, string> = {
+  vilni: "Vilniaus apskritis", kaun: "Kauno apskritis", klai: "Klaipėdos apskritis",
+  siau: "Šiaulių apskritis", pane: "Panevėžio apskritis", alyt: "Alytaus apskritis",
+  mari: "Marijampolės apskritis", uten: "Utenos apskritis", tels: "Telšių apskritis", taur: "Tauragės apskritis",
+};
+function countyFor(city: string): string | undefined {
+  const s = stripDiacritics(city);
+  const key = Object.keys(CITY_COUNTY).find((k) => s.startsWith(k));
+  // Tik pats miestas, ne „Kauno rajonas“ (rajono adresai gali būti ir kitoje apskrityje retai, bet ir to užtenka)
+  return key ? CITY_COUNTY[key] : undefined;
+}
+/** Miesto užrašas paieškai: „Šiauliai“ → „Šiauliai, Šiaulių apskritis“. */
+export function cityForQuery(city: string): string {
+  const c = countyFor(city);
+  return c ? `${city}, ${c}` : city;
+}
+
+/** Ar Nominatim rezultatas yra nurodytame mieste (lyginame pirmas 4 raides be diakritikų: „Kaune“ ~ „Kaunas“). */
+// deno-lint-ignore no-explicit-any
+export function inCityMatch(r: any, city: string): boolean {
+  const want = stripDiacritics(city).slice(0, 4);
+  const county = countyFor(city);
+  if (county && !stripDiacritics(r.display_name ?? "").includes(stripDiacritics(county))) return false;
+  const a = r.address ?? {};
+  // Tik miestas / savivaldybė. NE apskritis: „Panevėžio apskritis“ apima ir Biržus.
+  const fields = [a.city, a.town, a.village, a.municipality]
+    .filter(Boolean).map((x: string) => stripDiacritics(x));
+  return fields.some((f: string) => f.split(/[\s,]+/).some((w) => w.startsWith(want)));
+}
+
+/** Pirmas rezultatas nurodytame mieste; be miesto, tiesiog pirmas. */
+// deno-lint-ignore no-explicit-any
+function pickInCity(rows: any[] | null, city?: string): any {
+  if (!rows?.length) return undefined;
+  if (!city) return rows[0];
+  return rows.find((r) => inCityMatch(r, city));
+}
+
 // deno-lint-ignore no-explicit-any
 function toPlace(p: any, origin?: { lat: number; lon: number }): Place {
   const a = p.address ?? {};
@@ -247,7 +292,7 @@ const placeJson = (p: Place) => ({
  * `city`: miestas (nebūtina). `near`: šalia ko ieškoti („Gedimino kalnas“, „Savanorių pr. 100“).
  */
 export async function findPlace(query: string, opts: { city?: string; near?: string } = {}, now = new Date()) {
-  const city = opts.city ? `, ${opts.city}` : "";
+  const city = opts.city ? `, ${cityForQuery(opts.city)}` : "";
 
   // A) Kas arti
   if (opts.near) {
@@ -258,8 +303,20 @@ export async function findPlace(query: string, opts: { city?: string; near?: str
     const near = opts.near
       .replace(/\bprospekt\w*/gi, "pr.").replace(/\bgatv\w*/gi, "g.").replace(/\balėj\w*/gi, "al.")
       .replace(/\bplent\w*/gi, "pl.").replace(/\baikšt\w*/gi, "a.");
-    let originRaw = (await nominatimSafe(`/search?q=${encodeURIComponent(near + city)}&countrycodes=lt&limit=1`))?.[0];
-    if (!originRaw) originRaw = (await photonFallback(`${opts.near} ${opts.city ?? ""}`))[0];
+    let originRaw = pickInCity(await nominatimSafe(`/search?q=${encodeURIComponent(near + city)}&countrycodes=lt&limit=5`), opts.city);
+    // Jei laisvo teksto paieška rado kitame mieste (pvz. Respublikos g. 50 Biržuose vietoj Panevėžio), bandome struktūrizuotą
+    if (!originRaw && opts.city) {
+      const county = countyFor(opts.city);
+      originRaw = pickInCity(await nominatimSafe(`/search?street=${encodeURIComponent(near)}&city=${encodeURIComponent(opts.city)}${county ? `&county=${encodeURIComponent(county)}` : ""}&countrycodes=lt&limit=5`), opts.city);
+    }
+    // Namo numerio žemėlapyje nėra: imame pačią gatvę tame mieste (apytiksliai, bet teisingame mieste)
+    const streetOnly = near.replace(/\s+\d+[a-zA-Z]?$/, "");
+    let approx = false;
+    if (!originRaw && opts.city && streetOnly !== near) {
+      originRaw = pickInCity(await nominatimSafe(`/search?q=${encodeURIComponent(streetOnly + city)}&countrycodes=lt&limit=5`), opts.city);
+      approx = !!originRaw;
+    }
+    if (!originRaw) originRaw = pickInCity(await photonFallback(`${opts.near} ${opts.city ?? ""}`), opts.city);
     if (!originRaw) throw new PlaceError(`Neradau vietos „${opts.near}“. Paprašykite pasakyti gatvę ir namo numerį.`);
     const origin = { lat: +originRaw.lat, lon: +originRaw.lon };
 
@@ -294,14 +351,20 @@ export async function findPlace(query: string, opts: { city?: string; near?: str
     return {
       origin: { name: originRaw.display_name ?? originRaw.name, lat: origin.lat, lon: origin.lon },
       places: places.map(placeJson),
-      message: `Artimiausios vietos (${category.label}) šalia „${originName}“: ` +
+      message: (approx ? `Tikslaus namo numerio žemėlapyje nėra, atstumai skaičiuoti nuo gatvės „${streetOnly}“ vidurio (apytiksliai; paminėk tai). ` : "") +
+        `Artimiausios vietos (${category.label}) šalia „${originName}“: ` +
         places.map((p, i) => `${i + 1}) ${describe(p, now)}`).join("; "),
     };
   }
 
   // B) Konkreti vieta pagal pavadinimą
-  let rows = (await nominatimSafe(`/search?q=${encodeURIComponent(query + city)}&countrycodes=lt&limit=${MAX_RESULTS}`)) ?? [];
+  let rows = (await nominatimSafe(`/search?q=${encodeURIComponent(query + city)}&countrycodes=lt&limit=8`)) ?? [];
   rows = rows.filter((r) => r.category !== "highway" && r.category !== "boundary");
+  // Jei nurodytas miestas, pirmiausia to miesto rezultatai
+  if (opts.city) {
+    const inCity = rows.filter((r) => inCityMatch(r, opts.city!));
+    if (inCity.length) rows = inCity;
+  }
   if (!rows.length) rows = await photonFallback(`${query} ${opts.city ?? ""}`);
   if (!rows.length) throw new PlaceError(`Žemėlapyje neradau „${query}“. Pabandykite paieškoti internete (web_search).`);
   const places = rows.slice(0, MAX_RESULTS).map((r) => toPlace(r));
