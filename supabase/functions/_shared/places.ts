@@ -102,18 +102,37 @@ export function spokenDistance(m: number): string {
   return `apie ${(Math.round(m / 100) / 10).toString().replace(".", ",")} km`;
 }
 
+/** Aplinkos kintamasis ir Deno (Supabase), ir Node (testai). */
+function getEnv(name: string): string | undefined {
+  // deno-lint-ignore no-explicit-any
+  const g = globalThis as any;
+  return g.Deno?.env?.get(name) ?? g.process?.env?.[name];
+}
+
 let lastNominatim = 0;
-/** Nominatim politika: ne dažniau kaip 1 užklausa per sekundę. */
+/**
+ * Nominatim suderinama užklausa. Jei nustatytas LOCATIONIQ_API_KEY, naudojamas LocationIQ
+ * (tie patys OSM duomenys, bet neblokuoja debesų serverių; nemokamas planas su raktu).
+ * Kitaip viešas Nominatim (politika: ≤1 užklausa/s), kuris Supabase serverius blokuoja.
+ */
 async function nominatim(path: string) {
-  const wait = lastNominatim + 1_050 - Date.now();
+  const liqKey = getEnv("LOCATIONIQ_API_KEY");
+  const minGap = liqKey ? 550 : 1_050; // LocationIQ nemokamas: 2 užklausos/s
+  const wait = lastNominatim + minGap - Date.now();
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   lastNominatim = Date.now();
-  const r = await fetch(`${NOMINATIM}${path}&format=jsonv2&extratags=1&addressdetails=1&accept-language=lt`, {
-    headers: UA, signal: AbortSignal.timeout(5_000),
-  });
-  if (!r.ok) throw new Error(`nominatim ${r.status}`);
+
+  const url = liqKey
+    ? `https://eu1.locationiq.com/v1${path.replace("?", `?key=${liqKey}&`)}&format=json&extratags=1&addressdetails=1&accept-language=lt`
+    : `${NOMINATIM}${path}&format=jsonv2&extratags=1&addressdetails=1&accept-language=lt`;
+  const r = await fetch(url, { headers: UA, signal: AbortSignal.timeout(liqKey ? 4_000 : 3_000) });
+  if (r.status === 404 && liqKey) return []; // LocationIQ „nerasta“ grąžina 404
+  if (!r.ok) throw new Error(`${liqKey ? "locationiq" : "nominatim"} ${r.status}`);
   // deno-lint-ignore no-explicit-any
-  return await r.json() as any[];
+  const rows = await r.json() as any[];
+  // format=json (LocationIQ) turi `class`, jsonv2 turi `category`; suvienodiname
+  for (const row of rows) row.category ??= row.class;
+  return rows;
 }
 
 /** Nominatim, o jei jis neveikia ar blokuoja (pvz. debesų serverių IP), grąžina null. */
